@@ -1,6 +1,7 @@
 package localstore
 
 import (
+	"bufio"
 	"encoding/gob"
 	"io"
 	"net/url"
@@ -107,7 +108,8 @@ func (s *LocalStore[T]) List(offset int, limit int) (List[T], error) {
 			continue
 		}
 
-		value, err := s.decoder.Decode(f)
+		r := bufio.NewReader(f)
+		value, err := s.decoder.Decode(r)
 		_ = f.Close()
 		if err != nil {
 			return List[T]{}, err
@@ -144,7 +146,8 @@ func (s *LocalStore[T]) Get(key string) (T, error) {
 	if err != nil {
 		return *new(T), err
 	}
-	value, err := s.decoder.Decode(f)
+	r := bufio.NewReader(f)
+	value, err := s.decoder.Decode(r)
 	_ = f.Close()
 	if err != nil {
 		return value, err
@@ -164,7 +167,11 @@ func (s *LocalStore[T]) Put(key string, value T) error {
 	if err != nil {
 		return err
 	}
-	err = s.encoder.Encode(f, value)
+	w := bufio.NewWriter(f)
+	err = s.encoder.Encode(w, value)
+	if err1 := w.Flush(); err1 != nil && err == nil {
+		err = err1
+	}
 	if err1 := f.Close(); err1 != nil && err == nil {
 		err = err1
 	}
